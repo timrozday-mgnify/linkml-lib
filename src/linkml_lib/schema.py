@@ -9,11 +9,15 @@ Public functions:
     slot_meta(schema) -> list[dict]
     summary(schema) -> dict
     diff(a, b) -> dict
+    annotation_as_list(value) -> list[str]
+    allowed_units_from_comments(comments) -> list[str]
+    unit_rules(schema) -> dict[str, UnitRule]
 """
 
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -100,6 +104,73 @@ def summary(schema: dict[str, Any]) -> dict[str, Any]:
         "by_range": dict(Counter(r["range"] for r in rows)),
         "total_enums": len(schema.get("enums") or {}),
     }
+
+
+def annotation_as_list(value: object) -> list[str]:
+    """Coerce a YAML annotation value into a clean ``list[str]``.
+
+    LinkML/YAML may parse a multi-valued annotation as a real list, a single
+    comma-separated string, or leave it ``None`` — this normalises all three
+    into one shape.
+    """
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [part.strip() for part in str(value).split(",") if part.strip()]
+
+
+def allowed_units_from_comments(comments: object) -> list[str]:
+    """Parse the ``"Allowed units: X"`` convention out of a slot's ``comments``.
+
+    ENA-checklist-derived schemas (converted from XSD ``<UNITS>`` enumerations
+    via :mod:`linkml_lib.convert_xml`/``convert_xsd``) often have no native
+    unit-annotation slot, so the allowed unit tokens get stuffed into
+    ``comments`` instead: one ``"Allowed units: <first unit>"`` line followed
+    by zero or more bare unit-token lines.
+    """
+    result: list[str] = []
+    seen_units = False
+    for comment in annotation_as_list(comments):
+        if comment.startswith("Allowed units:"):
+            seen_units = True
+            result.extend(annotation_as_list(comment.removeprefix("Allowed units:")))
+        elif seen_units and len(comment) <= 30 and "." not in comment:
+            result.append(comment)
+    return result
+
+
+@dataclass(frozen=True)
+class UnitRule:
+    """A slot's allowed units (for validating/converting a submitted value)
+    and its default unit (when a value carries no explicit unit)."""
+
+    allowed_units: tuple[str, ...]
+    default_unit: str | None = None
+
+
+def unit_rules(schema: dict[str, Any]) -> dict[str, UnitRule]:
+    """Return a field-name -> :class:`UnitRule` map derived from slot annotations.
+
+    A slot's allowed units come from its ``ena_allowed_units`` annotation, or
+    (failing that) the ``"Allowed units: X"`` comment convention. Its default
+    unit comes from a ``default_unit`` annotation, recognising
+    ``mimicc_default_unit`` as a backward-compatible alias for schemas that
+    predate the generic key. Field names are each slot's ``annotations.id``
+    (falling back to its title, then its slot name) — the same key
+    :func:`slot_meta` and ``prepare_dh_output``'s title-to-id map use.
+    """
+    rules: dict[str, UnitRule] = {}
+    for slot_name, slot in (schema.get("slots") or {}).items():
+        annotations = (slot or {}).get("annotations") or {}
+        field_name = annotations.get("id") or (slot or {}).get("title") or slot_name
+        allowed = annotation_as_list(annotations.get("ena_allowed_units"))
+        if not allowed:
+            allowed = allowed_units_from_comments((slot or {}).get("comments"))
+        default_unit = annotations.get("default_unit") or annotations.get("mimicc_default_unit")
+        if allowed or default_unit:
+            rules[str(field_name)] = UnitRule(tuple(dict.fromkeys(allowed)), default_unit)
+    return rules
 
 
 def diff(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:

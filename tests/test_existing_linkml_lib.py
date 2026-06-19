@@ -198,6 +198,42 @@ def test_summary_totals(schema_a):
     assert s["total_enums"] == 1
 
 
+def test_annotation_as_list_handles_list_string_and_none():
+    assert schema_mod.annotation_as_list(None) == []
+    assert schema_mod.annotation_as_list(["a", " b ", ""]) == ["a", "b"]
+    assert schema_mod.annotation_as_list("a, b ,, c") == ["a", "b", "c"]
+
+
+def test_allowed_units_from_comments_parses_convention():
+    comments = ["Allowed units: g", "mg", "kg", "a longer comment that is not a unit token."]
+    assert schema_mod.allowed_units_from_comments(comments) == ["g", "mg", "kg"]
+
+
+def test_allowed_units_from_comments_no_marker_returns_empty():
+    assert schema_mod.allowed_units_from_comments(["just a regular comment"]) == []
+
+
+def test_unit_rules_from_annotation_and_comments_and_default():
+    s = _schema({
+        "temp": {
+            "title": "Temperature",
+            "range": "string",
+            "annotations": {"id": "temperature", "ena_allowed_units": "C, F", "default_unit": "C"},
+        },
+        "vol": {
+            "title": "Volume",
+            "range": "string",
+            "annotations": {"id": "volume", "mimicc_default_unit": "mL"},
+            "comments": ["Allowed units: mL", "L"],
+        },
+        "plain": {"title": "Plain", "range": "string"},
+    })
+    rules = schema_mod.unit_rules(s)
+    assert rules["temperature"] == schema_mod.UnitRule(("C", "F"), "C")
+    assert rules["volume"] == schema_mod.UnitRule(("mL", "L"), "mL")
+    assert "plain" not in rules
+
+
 def test_diff_added_removed_changed(schema_a, schema_b):
     d = schema_mod.diff(schema_a, schema_b)
     assert "extra" in d["added"]
