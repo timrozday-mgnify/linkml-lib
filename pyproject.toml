@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkml-lib"
+version = "0.1.0"
+description = "Reusable LinkML and DataHarmonizer schema utilities."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "MIMICC contributors" }
+]
+dependencies = [
+  "linkml>=1.7",
+  "linkml-runtime>=1.8",
+  "PyYAML>=6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pre-commit",
+  "typer>=0.9",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
