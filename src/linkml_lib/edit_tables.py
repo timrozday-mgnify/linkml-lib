@@ -175,7 +175,6 @@ def _slot_row(
         "pattern": slot_def.get("pattern", ""),
         "comments": _join_list(slot_def.get("comments")),
         "annotation_id": annotations.get("id", ""),
-        "annotation_source": annotations.get("source", ""),
         "annotation_mimicc_default_unit": annotations.get("mimicc_default_unit", ""),
     }
 
@@ -383,7 +382,6 @@ def _slot_annotations(row: Mapping[str, Any]) -> dict[str, Any]:
     annotations = {}
     for row_key, annotation_key in (
         ("annotation_id", "id"),
-        ("annotation_source", "source"),
         ("annotation_mimicc_default_unit", "mimicc_default_unit"),
     ):
         if row.get(row_key):

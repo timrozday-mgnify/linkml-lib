@@ -64,9 +64,7 @@ def merge(
                 if slot_name in slots:
                     slot_def = dict(slots[slot_name])
                     if source_prefix:
-                        annotations = dict(slot_def.get("annotations") or {})
-                        annotations["source"] = source_prefix
-                        slot_def["annotations"] = annotations
+                        slot_def["source"] = source_prefix
                     merged_slots[slot_name] = slot_def
             if slot_name not in merged_slot_usage and slot_name in slot_usage:
                 merged_slot_usage[slot_name] = dict(slot_usage[slot_name])
@@ -82,9 +80,7 @@ def merge(
                 continue
             slot_def = dict(slot_def)
             if source_prefix:
-                annotations = dict(slot_def.get("annotations") or {})
-                annotations["source"] = source_prefix
-                slot_def["annotations"] = annotations
+                slot_def["source"] = source_prefix
             merged_slots[slot_name] = slot_def
             seen_slot_order.append(slot_name)
 
