@@ -75,6 +75,8 @@ def table_specs() -> dict[str, list[list[str]]]:
                 "ifabsent",
                 "pattern",
                 "comments",
+                "annotation_id",
+                "annotation_default_unit",
             ],
             [
                 "> class",
@@ -89,6 +91,8 @@ def table_specs() -> dict[str, list[list[str]]]:
                 "> ifabsent",
                 "> pattern",
                 "> comments",
+                "> annotations",
+                "> annotations",
             ],
         ],
         ENUM_TABLE: [
@@ -161,6 +165,7 @@ def _slot_row(
     usage: Mapping[str, Any],
 ) -> JsonDict:
     annotations = slot_def.get("annotations") or {}
+    default_unit = annotations.get("default_unit", annotations.get("mimicc_default_unit", ""))
     return {
         "class": class_name,
         "slot": slot_name,
@@ -175,7 +180,7 @@ def _slot_row(
         "pattern": slot_def.get("pattern", ""),
         "comments": _join_list(slot_def.get("comments")),
         "annotation_id": annotations.get("id", ""),
-        "annotation_mimicc_default_unit": annotations.get("mimicc_default_unit", ""),
+        "annotation_default_unit": default_unit,
     }
 
 
@@ -367,6 +372,8 @@ def _apply_annotations(
         key = _clean(row.get("key"))
         if not element_type or not element or not key:
             continue
+        if element_type == "slot" and key == "mimicc_default_unit":
+            key = "default_unit"
         container = schema.get(_element_container_key(element_type))
         if not isinstance(container, dict) or element not in container:
             diagnostics.append(Diagnostic("warning", "Annotation target was not found.", ANNOTATION_TABLE, index))
@@ -382,10 +389,12 @@ def _slot_annotations(row: Mapping[str, Any]) -> dict[str, Any]:
     annotations = {}
     for row_key, annotation_key in (
         ("annotation_id", "id"),
-        ("annotation_mimicc_default_unit", "mimicc_default_unit"),
+        ("annotation_default_unit", "default_unit"),
     ):
         if row.get(row_key):
             annotations[annotation_key] = row[row_key]
+    if not annotations.get("default_unit") and row.get("annotation_mimicc_default_unit"):
+        annotations["default_unit"] = row["annotation_mimicc_default_unit"]
     return annotations
 
 

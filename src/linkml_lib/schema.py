@@ -156,9 +156,10 @@ def unit_rules(schema: dict[str, Any]) -> dict[str, UnitRule]:
     (failing that) the ``"Allowed units: X"`` comment convention. Its default
     unit comes from a ``default_unit`` annotation, recognising
     ``mimicc_default_unit`` as a backward-compatible alias for schemas that
-    predate the generic key. Field names are each slot's ``annotations.id``
-    (falling back to its title, then its slot name) — the same key
-    :func:`slot_meta` and ``prepare_dh_output``'s title-to-id map use.
+    predate the generic key, and finally falls back to the first allowed unit.
+    Field names are each slot's ``annotations.id`` (falling back to its title,
+    then its slot name) — the same key :func:`slot_meta` and
+    ``prepare_dh_output``'s title-to-id map use.
     """
     rules: dict[str, UnitRule] = {}
     for slot_name, slot in (schema.get("slots") or {}).items():
@@ -167,7 +168,11 @@ def unit_rules(schema: dict[str, Any]) -> dict[str, UnitRule]:
         allowed = annotation_as_list(annotations.get("ena_allowed_units"))
         if not allowed:
             allowed = allowed_units_from_comments((slot or {}).get("comments"))
-        default_unit = annotations.get("default_unit") or annotations.get("mimicc_default_unit")
+        default_unit = (
+            annotations.get("default_unit")
+            or annotations.get("mimicc_default_unit")
+            or (allowed[0] if allowed else None)
+        )
         if allowed or default_unit:
             rules[str(field_name)] = UnitRule(tuple(dict.fromkeys(allowed)), default_unit)
     return rules
