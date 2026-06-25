@@ -175,6 +175,7 @@ def _build_slot(field: dict[str, Any]) -> dict[str, Any]:
         slot["pattern"] = field["regex_value"]
     if field["units"]:
         slot["annotations"]["ena_allowed_units"] = ",".join(field["units"])
+        slot["annotations"]["default_unit"] = field["units"][0]
         slot["comments"] = ["Allowed units: " + ", ".join(field["units"])]
     return slot
 

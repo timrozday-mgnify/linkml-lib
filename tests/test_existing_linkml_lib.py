@@ -82,6 +82,7 @@ def test_convert_xml_real_checklist():
     assert "project_name" in s["slots"]
     assert s["slots"]["collection_date"]["annotations"]["id"] == "collection date"
     assert s["slots"]["sample_storage_temperature"]["annotations"]["ena_allowed_units"] == "°C"
+    assert s["slots"]["sample_storage_temperature"]["annotations"]["default_unit"] == "°C"
 
 
 @requires_ena_assets
@@ -226,11 +227,18 @@ def test_unit_rules_from_annotation_and_comments_and_default():
             "annotations": {"id": "volume", "mimicc_default_unit": "mL"},
             "comments": ["Allowed units: mL", "L"],
         },
+        "mass": {
+            "title": "Mass",
+            "range": "string",
+            "annotations": {"id": "mass"},
+            "comments": ["Allowed units: g", "mg"],
+        },
         "plain": {"title": "Plain", "range": "string"},
     })
     rules = schema_mod.unit_rules(s)
     assert rules["temperature"] == schema_mod.UnitRule(("C", "F"), "C")
     assert rules["volume"] == schema_mod.UnitRule(("mL", "L"), "mL")
+    assert rules["mass"] == schema_mod.UnitRule(("g", "mg"), "g")
     assert "plain" not in rules
 
 
