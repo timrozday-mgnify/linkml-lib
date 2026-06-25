@@ -159,12 +159,12 @@ def test_filter_keeps_referenced_enums(schema_a):
 # Pipeline
 # ---------------------------------------------------------------------------
 
-def test_merge_writes_annotations_source():
+def test_merge_writes_top_level_source():
     xml_schema = convert_xml.from_path(ERC_XML, "https://example.org")
     merged = transform.merge([xml_schema], source_names=["ERC000025"])
     slot = merged["slots"]["collection_date"]
-    assert slot.get("source") is None, "source must not be at top level"
-    assert slot["annotations"]["source"] == "ERC000025"
+    assert slot["source"] == "ERC000025"
+    assert "source" not in slot["annotations"]
 
 
 @requires_ena_assets
