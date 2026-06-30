@@ -1,7 +1,15 @@
-"""Convert between LinkML dictionaries and editable Schemasheets-like tables."""
+"""Convert between LinkML dictionaries and editable tables.
+
+This module reimplements the Schemasheets-inspired subset needed by
+DataHarmonizer editor applications. It keeps conversion in memory over
+JSON-like rows, preserves MIMICC/DataHarmonizer editing conventions, and avoids
+runtime dependence on the upstream Schemasheets package or CLI tools. It is not
+a full Schemasheets replacement.
+"""
 
 from __future__ import annotations
 
+import copy
 import json
 from collections.abc import Mapping
 from typing import Any
@@ -21,14 +29,25 @@ ENUM_TABLE = "enums"
 PERMISSIBLE_VALUE_TABLE = "permissible_values"
 ANNOTATION_TABLE = "annotations"
 
+SLOT_ANNOTATION_COLUMN_PREFIX = "Annotation: "
+LEGACY_ANNOTATION_COLUMN_PREFIX = "annotation_"
+LEGACY_SLOT_ANNOTATION_KEYS = {"mimicc_default_unit": "default_unit"}
+DEFAULT_SLOT_ANNOTATION_COLUMNS = ("Annotation: id", "Annotation: default_unit")
+
 
 def schema_to_tables(schema: Mapping[str, Any]) -> TableRows:
-    """Return editable tables for a LinkML schema."""
+    """Return editable tables for a LinkML schema.
+
+    Each slot's annotations are projected as ``"Annotation: <key>"`` columns on
+    its slot row; every slot row carries at least the default annotation columns.
+    """
+    slot_rows = _slot_rows(schema)
+    _ensure_slot_annotation_columns(slot_rows)
     return {
         SCHEMA_TABLE: [_schema_row(schema)],
         PREFIX_TABLE: _prefix_rows(schema),
         CLASS_TABLE: _class_rows(schema),
-        SLOT_TABLE: _slot_rows(schema),
+        SLOT_TABLE: slot_rows,
         ENUM_TABLE: _enum_rows(schema),
         PERMISSIBLE_VALUE_TABLE: _permissible_value_rows(schema),
         ANNOTATION_TABLE: _annotation_rows(schema),
@@ -36,7 +55,12 @@ def schema_to_tables(schema: Mapping[str, Any]) -> TableRows:
 
 
 def tables_to_schema(tables: Mapping[str, list[JsonDict]]) -> tuple[dict[str, Any], list[Diagnostic]]:
-    """Build a LinkML schema dictionary from editable tables."""
+    """Build a LinkML schema dictionary from editable tables.
+
+    ``"Annotation: <key>"`` slot-row columns (and legacy ``annotation_<key>``
+    columns) are folded back into each slot's annotations.
+    """
+    tables = _tables_with_slot_annotation_rows(tables)
     diagnostics: list[Diagnostic] = []
     schema_row = _first_row(tables.get(SCHEMA_TABLE, []))
     schema = _schema_from_row(schema_row)
@@ -50,7 +74,7 @@ def tables_to_schema(tables: Mapping[str, list[JsonDict]]) -> tuple[dict[str, An
 
 
 def table_specs() -> dict[str, list[list[str]]]:
-    """Return Schemasheets-style header and descriptor rows for each table."""
+    """Return Schemasheets-inspired header and descriptor rows for each table."""
     return {
         SCHEMA_TABLE: [
             ["schema", "id", "name", "title", "description", "version", "default_range", "imports"],
@@ -75,8 +99,8 @@ def table_specs() -> dict[str, list[list[str]]]:
                 "ifabsent",
                 "pattern",
                 "comments",
-                "annotation_id",
-                "annotation_default_unit",
+                "Annotation: id",
+                "Annotation: default_unit",
             ],
             [
                 "> class",
@@ -91,8 +115,8 @@ def table_specs() -> dict[str, list[list[str]]]:
                 "> ifabsent",
                 "> pattern",
                 "> comments",
-                "> annotations",
-                "> annotations",
+                '> annotations: {inner_key: "id"}',
+                '> annotations: {inner_key: "default_unit"}',
             ],
         ],
         ENUM_TABLE: [
@@ -164,9 +188,7 @@ def _slot_row(
     slot_def: Mapping[str, Any],
     usage: Mapping[str, Any],
 ) -> JsonDict:
-    annotations = slot_def.get("annotations") or {}
-    default_unit = annotations.get("default_unit", annotations.get("mimicc_default_unit", ""))
-    return {
+    row = {
         "class": class_name,
         "slot": slot_name,
         "rank": usage.get("rank", slot_def.get("rank", "")),
@@ -179,9 +201,10 @@ def _slot_row(
         "ifabsent": slot_def.get("ifabsent", ""),
         "pattern": slot_def.get("pattern", ""),
         "comments": _join_list(slot_def.get("comments")),
-        "annotation_id": annotations.get("id", ""),
-        "annotation_default_unit": default_unit,
     }
+    for key, value in (slot_def.get("annotations") or {}).items():
+        row[_annotation_column_for_key(_normalized_annotation_key(key))] = "" if value is None else value
+    return row
 
 
 def _enum_rows(schema: Mapping[str, Any]) -> list[JsonDict]:
@@ -296,9 +319,6 @@ def _apply_slots(
         comments = _split_list(row.get("comments"))
         if comments:
             slot_def["comments"] = comments
-        annotations = _slot_annotations(row)
-        if annotations:
-            slot_def["annotations"] = annotations
     if slots:
         schema["slots"] = slots
 
@@ -385,17 +405,98 @@ def _first_row(rows: list[JsonDict]) -> JsonDict:
     return rows[0] if rows else {}
 
 
-def _slot_annotations(row: Mapping[str, Any]) -> dict[str, Any]:
-    annotations = {}
-    for row_key, annotation_key in (
-        ("annotation_id", "id"),
-        ("annotation_default_unit", "default_unit"),
-    ):
-        if row.get(row_key):
-            annotations[annotation_key] = row[row_key]
-    if not annotations.get("default_unit") and row.get("annotation_mimicc_default_unit"):
-        annotations["default_unit"] = row["annotation_mimicc_default_unit"]
-    return annotations
+def _ensure_slot_annotation_columns(slot_rows: list[JsonDict]) -> None:
+    """Make every slot row carry the same set of ``"Annotation: <key>"`` columns."""
+    columns: list[str] = list(DEFAULT_SLOT_ANNOTATION_COLUMNS)
+    for row in slot_rows:
+        columns.extend(column for column in row if _is_slot_annotation_column(column))
+    columns = list(dict.fromkeys(columns))
+    for row in slot_rows:
+        for column in columns:
+            row.setdefault(column, "")
+
+
+def _tables_with_slot_annotation_rows(tables: Mapping[str, list[JsonDict]]) -> TableRows:
+    """Fold ``"Annotation: <key>"`` slot columns back into ``ANNOTATION_TABLE`` rows."""
+    prepared = copy.deepcopy(dict(tables))
+    annotation_rows = prepared.setdefault(ANNOTATION_TABLE, [])
+    for slot_row in prepared.get(SLOT_TABLE, []):
+        _migrate_legacy_slot_annotation_columns(slot_row)
+        slot_name = _clean(slot_row.get("slot"))
+        if not slot_name:
+            continue
+        slot_columns = _slot_annotation_columns_for_row(slot_row)
+        annotation_rows[:] = [
+            row
+            for row in annotation_rows
+            if not (
+                _clean(row.get("element_type")) == "slot"
+                and _clean(row.get("element")) == slot_name
+                and _annotation_column_for_key(_normalized_annotation_key(_clean(row.get("key"))))
+                in slot_columns
+            )
+        ]
+        for column in slot_columns:
+            value = slot_row.get(column)
+            if value in (None, ""):
+                continue
+            annotation_rows.append(
+                {
+                    "element_type": "slot",
+                    "element": slot_name,
+                    "key": _annotation_key_for_column(column),
+                    "value": value,
+                }
+            )
+    return prepared
+
+
+def _slot_annotation_columns_for_row(row: Mapping[str, Any]) -> list[str]:
+    return [
+        _annotation_column_for_key(_annotation_key_for_column(column))
+        for column in row
+        if _is_slot_annotation_column(column)
+    ]
+
+
+def _annotation_column_for_key(key: str) -> str:
+    return f"{SLOT_ANNOTATION_COLUMN_PREFIX}{key}"
+
+
+def _annotation_key_for_column(column: str) -> str:
+    if column.startswith(SLOT_ANNOTATION_COLUMN_PREFIX):
+        key = column.removeprefix(SLOT_ANNOTATION_COLUMN_PREFIX)
+    else:
+        key = column.removeprefix(LEGACY_ANNOTATION_COLUMN_PREFIX)
+    return _normalized_annotation_key(key)
+
+
+def _normalized_annotation_key(key: str) -> str:
+    return LEGACY_SLOT_ANNOTATION_KEYS.get(key, key)
+
+
+def _migrate_legacy_slot_annotation_columns(row: JsonDict) -> None:
+    for column in list(row):
+        if not _is_legacy_slot_annotation_column(column):
+            continue
+        canonical_column = _annotation_column_for_key(_annotation_key_for_column(column))
+        if not _clean(row.get(canonical_column)) and _clean(row.get(column)):
+            row[canonical_column] = row[column]
+        row.pop(column, None)
+
+
+def _is_slot_annotation_column(column: str) -> bool:
+    return (
+        column.startswith(SLOT_ANNOTATION_COLUMN_PREFIX)
+        and column != SLOT_ANNOTATION_COLUMN_PREFIX
+    ) or _is_legacy_slot_annotation_column(column)
+
+
+def _is_legacy_slot_annotation_column(column: str) -> bool:
+    return (
+        column.startswith(LEGACY_ANNOTATION_COLUMN_PREFIX)
+        and column != LEGACY_ANNOTATION_COLUMN_PREFIX
+    )
 
 
 def _prefix_reference(value: Any) -> str:

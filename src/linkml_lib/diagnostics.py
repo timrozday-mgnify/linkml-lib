@@ -14,7 +14,19 @@ class Diagnostic:
     message: str
     table: str | None = None
     row: int | None = None
+    column: str | None = None
     path: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serializable diagnostic."""
+        return {
+            "level": self.level,
+            "message": self.message,
+            "table": self.table,
+            "row": self.row,
+            "column": self.column,
+            "path": self.path,
+        }
 
 
 def validate_schema(schema: dict[str, Any]) -> list[Diagnostic]:

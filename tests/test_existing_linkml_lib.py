@@ -315,3 +315,77 @@ def test_diagnostics_missing_enum():
     schema = _schema({"status": {"range": "MissingMenu"}})
     messages = [diagnostic.message for diagnostic in diagnostics.validate_schema(schema)]
     assert any("MissingMenu" in message for message in messages)
+
+
+def test_diagnostic_to_dict_has_column():
+    diagnostic = diagnostics.Diagnostic("warning", "msg", "slots", 3, "name")
+    assert diagnostic.column == "name"
+    assert diagnostic.to_dict() == {
+        "level": "warning",
+        "message": "msg",
+        "table": "slots",
+        "row": 3,
+        "column": "name",
+        "path": None,
+    }
+
+
+_ANNOTATION_SCHEMA = """
+id: https://example.org/test
+name: test
+classes:
+  Test:
+    slots:
+    - sample_id
+slots:
+  sample_id:
+    annotations:
+      id: sample_id
+      ena_allowed_units: mL; L
+      source: MIMICC
+"""
+
+
+def test_schema_to_tables_projects_all_slot_annotations():
+    tables = edit_tables.schema_to_tables(io.load_yaml_text(_ANNOTATION_SCHEMA))
+    slot = tables["slots"][0]
+    assert "annotation_id" not in slot
+    assert slot["Annotation: id"] == "sample_id"
+    assert slot["Annotation: ena_allowed_units"] == "mL; L"
+    assert slot["Annotation: source"] == "MIMICC"
+
+
+def test_schema_to_tables_includes_blank_default_annotation_columns():
+    schema = io.load_yaml_text(
+        "id: https://example.org/test\nname: test\n"
+        "classes:\n  Test:\n    slots:\n    - sample_id\n"
+        "slots:\n  sample_id:\n    range: string\n"
+    )
+    slot = edit_tables.schema_to_tables(schema)["slots"][0]
+    assert slot["Annotation: id"] == ""
+    assert slot["Annotation: default_unit"] == ""
+
+
+def test_tables_to_schema_round_trips_dynamic_annotation_columns():
+    tables = edit_tables.schema_to_tables(io.load_yaml_text(_ANNOTATION_SCHEMA))
+    tables["slots"][0]["Annotation: source"] = "EDITED"
+    rebuilt, table_diagnostics = edit_tables.tables_to_schema(tables)
+    assert table_diagnostics == []
+    annotations = rebuilt["slots"]["sample_id"]["annotations"]
+    assert annotations["ena_allowed_units"] == "mL; L"
+    assert annotations["source"] == "EDITED"
+
+
+def test_tables_to_schema_migrates_legacy_default_unit():
+    schema = io.load_yaml_text(
+        "id: https://example.org/test\nname: test\n"
+        "classes:\n  Test:\n    slots:\n    - sample_id\n"
+        "slots:\n  sample_id:\n    annotations:\n      mimicc_default_unit: mL\n"
+    )
+    tables = edit_tables.schema_to_tables(schema)
+    assert tables["slots"][0]["Annotation: default_unit"] == "mL"
+    rebuilt, table_diagnostics = edit_tables.tables_to_schema(tables)
+    assert table_diagnostics == []
+    annotations = rebuilt["slots"]["sample_id"]["annotations"]
+    assert annotations["default_unit"] == "mL"
+    assert "mimicc_default_unit" not in annotations
