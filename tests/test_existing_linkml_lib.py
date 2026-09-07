@@ -15,16 +15,10 @@ import pytest
 from linkml_lib import convert_xml, convert_xsd, dh_data, diagnostics, edit_tables, io, pipeline, transform
 from linkml_lib import schema as schema_mod
 
-REPO = Path(__file__).resolve().parents[1]
-ENA_REPO = REPO.parent / "ena-submission-dataharmonizer"
-ERC_XML = ENA_REPO / "assets" / "ena_schema" / "ERC000015.xml"
-SRA_XSD = ENA_REPO / "assets" / "ena_schema" / "SRA.study.xsd"
-DH_DATA = ENA_REPO / "assets" / "test-fixtures" / "ERC000015_example.json"
-
-requires_ena_assets = pytest.mark.skipif(
-    not (ERC_XML.exists() and SRA_XSD.exists() and DH_DATA.exists()),
-    reason="ENA fixture assets are not available",
-)
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+ERC_XML = FIXTURES / "ERC000015.xml"
+SRA_XSD = FIXTURES / "SRA.study.xsd"
+DH_DATA = FIXTURES / "ERC000015_example.json"
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +75,6 @@ def schema_b():
 # ---------------------------------------------------------------------------
 
 
-@requires_ena_assets
 def test_convert_xml_real_checklist():
     s = convert_xml.from_path(ERC_XML, "https://example.org")
     assert s is not None
@@ -92,7 +85,6 @@ def test_convert_xml_real_checklist():
     assert s["slots"]["sample_storage_temperature"]["annotations"]["default_unit"] == "°C"
 
 
-@requires_ena_assets
 def test_convert_xsd_real_xsd():
     s = convert_xsd.from_path(SRA_XSD, "https://example.org")
     assert s is not None
@@ -104,10 +96,8 @@ def test_load_any_dispatch_by_extension(tmp_path):
     yaml_file = tmp_path / "x.yaml"
     yaml_file.write_text("name: t\nslots: {}\nclasses: {}\n")
     assert io.load_any(yaml_file) is not None
-    if ERC_XML.exists():
-        assert io.load_any(ERC_XML) is not None
-    if SRA_XSD.exists():
-        assert io.load_any(SRA_XSD) is not None
+    assert io.load_any(ERC_XML) is not None
+    assert io.load_any(SRA_XSD) is not None
     assert io.load_any(tmp_path / "unknown.txt") is None
 
 
@@ -178,7 +168,6 @@ def test_merge_writes_top_level_source():
     assert "source" not in slot["annotations"]
 
 
-@requires_ena_assets
 def test_pipeline_build_xml_plus_xsd():
     s = pipeline.build([str(SRA_XSD), str(ERC_XML)])
     assert len(s["slots"]) > 80
@@ -268,7 +257,6 @@ def test_diff_added_removed_changed(schema_a, schema_b):
 # ---------------------------------------------------------------------------
 
 
-@requires_ena_assets
 def test_dh_filter_columns_real():
     with open(DH_DATA) as f:
         data = json.load(f)
