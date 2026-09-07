@@ -20,13 +20,12 @@ import yaml
 
 from ._yaml_dump import LinkMLDumper
 
-
 DEFAULT_BASE_URI = "https://github.com/timrozday/ena-submission-dataharmonizer"
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
     """Load a LinkML YAML schema file and return the parsed dict."""
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
 
@@ -41,12 +40,14 @@ def load_yaml_text(yaml_text: str) -> dict[str, Any]:
 def load_xml(path: str | Path, base_uri: str = DEFAULT_BASE_URI) -> dict[str, Any] | None:
     """Convert an ENA checklist XML file to a LinkML schema dict."""
     from . import convert_xml
+
     return convert_xml.from_path(path, base_uri)
 
 
 def load_xsd(path: str | Path, base_uri: str = DEFAULT_BASE_URI) -> dict[str, Any] | None:
     """Convert an XSD schema file to a LinkML schema dict."""
     from . import convert_xsd
+
     return convert_xsd.from_path(path, base_uri)
 
 

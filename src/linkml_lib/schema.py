@@ -20,7 +20,6 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-
 # Columns produced by slot_meta() — used by both the library and the CLI.
 SLOT_META_COLUMNS = ("name", "title", "source", "required", "slot_group", "rank", "range")
 
@@ -59,11 +58,7 @@ def title_to_slot_map(schema: dict[str, Any]) -> dict[str, str]:
 
 def referenced_enums(slots_dict: dict[str, Any]) -> set[str]:
     """Return the set of enum names referenced by any slot's ``range``."""
-    return {
-        defn.get("range", "")
-        for defn in slots_dict.values()
-        if defn.get("range")
-    }
+    return {defn.get("range", "") for defn in slots_dict.values() if defn.get("range")}
 
 
 def slot_meta(schema: dict[str, Any]) -> list[dict[str, Any]]:
@@ -81,15 +76,17 @@ def slot_meta(schema: dict[str, Any]) -> list[dict[str, Any]]:
     for slot_name in main_cls.get("slots") or []:
         slot = slots.get(slot_name) or {}
         usage = slot_usage.get(slot_name) or {}
-        result.append({
-            "name": slot_name,
-            "title": slot.get("title", slot_name),
-            "source": (slot.get("annotations") or {}).get("source") or slot.get("source", ""),
-            "required": bool(slot.get("required", False)),
-            "slot_group": usage.get("slot_group", ""),
-            "rank": usage.get("rank", 9999),
-            "range": slot.get("range", "string"),
-        })
+        result.append(
+            {
+                "name": slot_name,
+                "title": slot.get("title", slot_name),
+                "source": (slot.get("annotations") or {}).get("source") or slot.get("source", ""),
+                "required": bool(slot.get("required", False)),
+                "slot_group": usage.get("slot_group", ""),
+                "rank": usage.get("rank", 9999),
+                "range": slot.get("range", "string"),
+            }
+        )
     return result
 
 
@@ -193,11 +190,7 @@ def diff(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     for name in sorted(a_names & b_names):
         a_def = a_slots[name] or {}
         b_def = b_slots[name] or {}
-        deltas = {
-            f: (a_def.get(f), b_def.get(f))
-            for f in fields_to_compare
-            if a_def.get(f) != b_def.get(f)
-        }
+        deltas = {f: (a_def.get(f), b_def.get(f)) for f in fields_to_compare if a_def.get(f) != b_def.get(f)}
         if deltas:
             changed.append({"name": name, "changes": deltas})
 

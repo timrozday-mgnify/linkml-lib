@@ -33,10 +33,10 @@ from linkml.validator.report import Severity, ValidationReport, ValidationResult
 
 from .schema import get_main_class, slot_meta, title_to_slot_map
 
-
 # ---------------------------------------------------------------------------
 # Column filtering via SQL WHERE on slot metadata
 # ---------------------------------------------------------------------------
+
 
 def filter_columns(data: dict[str, Any], schema: dict[str, Any], where: str) -> dict[str, Any]:
     """Filter columns of a DataHarmonizer JSON export by SQL WHERE on slot metadata.
@@ -69,11 +69,13 @@ def _select_slot_names(rows: list[dict[str, Any]], where: str) -> set[str]:
         "(name TEXT, title TEXT, source TEXT, required INTEGER, "
         " slot_group TEXT, rank INTEGER, range TEXT)"
     )
-    con.executemany("INSERT INTO slots VALUES (?,?,?,?,?,?,?)", [
-        (r["name"], r["title"], r["source"], int(r["required"]),
-         r["slot_group"], r["rank"], r["range"])
-        for r in rows
-    ])
+    con.executemany(
+        "INSERT INTO slots VALUES (?,?,?,?,?,?,?)",
+        [
+            (r["name"], r["title"], r["source"], int(r["required"]), r["slot_group"], r["rank"], r["range"])
+            for r in rows
+        ],
+    )
     try:
         result = con.execute(f"SELECT name FROM slots WHERE {where}").fetchall()
     except sqlite3.OperationalError as exc:
@@ -84,6 +86,7 @@ def _select_slot_names(rows: list[dict[str, Any]], where: str) -> set[str]:
 # ---------------------------------------------------------------------------
 # Title → name remapping
 # ---------------------------------------------------------------------------
+
 
 def remap_titles_to_names(
     records: list[dict[str, Any]],
@@ -99,6 +102,7 @@ def remap_titles_to_names(
 # ---------------------------------------------------------------------------
 # Record validation via linkml.validator
 # ---------------------------------------------------------------------------
+
 
 def validate(
     records: Sequence[dict[str, Any]],

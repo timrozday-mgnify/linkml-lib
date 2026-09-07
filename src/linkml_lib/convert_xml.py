@@ -111,6 +111,7 @@ def to_linkml(checklist: dict[str, Any], base_uri: str) -> dict[str, Any]:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _text(parent: ET.Element, tag: str) -> str:
     el = parent.find(tag)
     return (el.text or "").strip() if el is not None and el.text else ""
@@ -135,8 +136,7 @@ def _parse_field(field_el: ET.Element) -> dict[str, Any]:
         text_field = ft.find("TEXT_FIELD")
         if choice_field is not None:
             field["field_type"] = "TEXT_CHOICE_FIELD"
-            field["choices"] = [v for tv in choice_field.findall("TEXT_VALUE")
-                                if (v := _text(tv, "VALUE"))]
+            field["choices"] = [v for tv in choice_field.findall("TEXT_VALUE") if (v := _text(tv, "VALUE"))]
         elif text_field is not None:
             field["field_type"] = "TEXT_FIELD"
             regex_el = text_field.find("REGEX_VALUE")

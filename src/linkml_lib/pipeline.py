@@ -7,12 +7,14 @@ Public function:
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from . import io
 from .io import DEFAULT_BASE_URI
-from .transform import filter as filter_schema, merge
+from .transform import filter as filter_schema
+from .transform import merge
 
 
 def build(
@@ -37,11 +39,14 @@ def build(
     if not schemas:
         raise ValueError("No valid schemas found in input files")
 
-    source_names = [os.path.splitext(os.path.basename(p))[0] for p in paths[:len(schemas)]]
+    source_names = [os.path.splitext(os.path.basename(p))[0] for p in paths[: len(schemas)]]
     schema = merge(
         schemas,
         source_names=source_names,
-        name=name, title=title, description=description, base_uri=base_uri,
+        name=name,
+        title=title,
+        description=description,
+        base_uri=base_uri,
     )
 
     if include is not None or exclude is not None:

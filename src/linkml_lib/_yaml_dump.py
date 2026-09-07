@@ -11,6 +11,7 @@ import yaml
 
 class LinkMLDumper(yaml.SafeDumper):
     """YAML dumper for LinkML schemas."""
+
     pass
 
 

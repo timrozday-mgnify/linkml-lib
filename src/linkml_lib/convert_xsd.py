@@ -15,21 +15,32 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
-
 XS_NS = "http://www.w3.org/2001/XMLSchema"
 NS = {"xs": XS_NS}
 
 SKIP_ELEMENT_PATTERNS = re.compile(r"^(.*_LINKS|.*_ATTRIBUTES|RELATED_.*)$", re.IGNORECASE)
 SKIP_COM_TYPES = {
-    "com:LinkType", "com:AttributeType", "com:SpotDescriptorType",
-    "com:ProcessingType", "com:ReferenceSequenceType", "com:XRefType", "com:PlatformType",
+    "com:LinkType",
+    "com:AttributeType",
+    "com:SpotDescriptorType",
+    "com:ProcessingType",
+    "com:ReferenceSequenceType",
+    "com:XRefType",
+    "com:PlatformType",
 }
 
 XSD_TO_LINKML_TYPE = {
-    "xs:string": "string", "xs:int": "integer", "xs:integer": "integer",
-    "xs:nonNegativeInteger": "integer", "xs:positiveInteger": "integer",
-    "xs:float": "float", "xs:double": "float", "xs:decimal": "float",
-    "xs:boolean": "boolean", "xs:date": "date", "xs:dateTime": "datetime",
+    "xs:string": "string",
+    "xs:int": "integer",
+    "xs:integer": "integer",
+    "xs:nonNegativeInteger": "integer",
+    "xs:positiveInteger": "integer",
+    "xs:float": "float",
+    "xs:double": "float",
+    "xs:decimal": "float",
+    "xs:boolean": "boolean",
+    "xs:date": "date",
+    "xs:dateTime": "datetime",
     "xs:token": "string",
 }
 
@@ -105,6 +116,7 @@ convert = from_path  # alias for symmetry with other modules
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse(path):
     tree = ET.parse(str(path))
     root = tree.getroot()
@@ -163,6 +175,7 @@ def _extract_inline_enum(simple_type_elem):
 # XSDWalker
 # ---------------------------------------------------------------------------
 
+
 class XSDWalker:
     """Recursive walker that extracts LinkML slots and enums from XSD complex types."""
 
@@ -179,7 +192,12 @@ class XSDWalker:
         if name in self.seen_names:
             return
         self.seen_names.add(name)
-        slot = {"name": name, "description": description or f"The {name} field.", "range": range_type, "annotations": {"id": name}}
+        slot = {
+            "name": name,
+            "description": description or f"The {name} field.",
+            "range": range_type,
+            "annotations": {"id": name},
+        }
         if required:
             slot["required"] = True
         self.slots[name] = slot

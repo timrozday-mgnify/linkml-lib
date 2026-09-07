@@ -302,7 +302,7 @@ def _apply_slots(
     rows: list[JsonDict],
     diagnostics: list[Diagnostic],
 ) -> None:
-    slots = {}
+    slots: dict[str, JsonDict] = {}
     for index, row in enumerate(rows, start=1):
         slot_name = _clean(row.get("slot"))
         if not slot_name:
@@ -352,7 +352,7 @@ def _apply_enums(
     enum_rows: list[JsonDict],
     value_rows: list[JsonDict],
 ) -> None:
-    enums = {}
+    enums: dict[str, JsonDict] = {}
     for row in enum_rows:
         enum_name = _clean(row.get("enum"))
         if not enum_name:
@@ -432,8 +432,7 @@ def _tables_with_slot_annotation_rows(tables: Mapping[str, list[JsonDict]]) -> T
             if not (
                 _clean(row.get("element_type")) == "slot"
                 and _clean(row.get("element")) == slot_name
-                and _annotation_column_for_key(_normalized_annotation_key(_clean(row.get("key"))))
-                in slot_columns
+                and _annotation_column_for_key(_normalized_annotation_key(_clean(row.get("key")))) in slot_columns
             )
         ]
         for column in slot_columns:
@@ -487,16 +486,12 @@ def _migrate_legacy_slot_annotation_columns(row: JsonDict) -> None:
 
 def _is_slot_annotation_column(column: str) -> bool:
     return (
-        column.startswith(SLOT_ANNOTATION_COLUMN_PREFIX)
-        and column != SLOT_ANNOTATION_COLUMN_PREFIX
+        column.startswith(SLOT_ANNOTATION_COLUMN_PREFIX) and column != SLOT_ANNOTATION_COLUMN_PREFIX
     ) or _is_legacy_slot_annotation_column(column)
 
 
 def _is_legacy_slot_annotation_column(column: str) -> bool:
-    return (
-        column.startswith(LEGACY_ANNOTATION_COLUMN_PREFIX)
-        and column != LEGACY_ANNOTATION_COLUMN_PREFIX
-    )
+    return column.startswith(LEGACY_ANNOTATION_COLUMN_PREFIX) and column != LEGACY_ANNOTATION_COLUMN_PREFIX
 
 
 def _prefix_reference(value: Any) -> str:

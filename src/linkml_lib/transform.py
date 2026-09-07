@@ -10,22 +10,23 @@ Public functions:
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from .schema import get_main_class, ordered_slot_names, referenced_enums
 
 
 def load_field_list(path: str | Path) -> list[str]:
     """Read a newline-separated text file of field names (# comments and blanks skipped)."""
-    with open(path, "r", encoding="utf-8") as fh:
-        return [line.strip() for line in fh
-                if line.strip() and not line.strip().startswith("#")]
+    with open(path, encoding="utf-8") as fh:
+        return [line.strip() for line in fh if line.strip() and not line.strip().startswith("#")]
 
 
 # ---------------------------------------------------------------------------
 # Merge
 # ---------------------------------------------------------------------------
+
 
 def merge(
     schemas: Sequence[dict[str, Any]],
@@ -95,13 +96,24 @@ def merge(
         merged_enums=merged_enums,
         merged_slot_usage=renumbered_usage,
         schemas=schemas,
-        name=name, title=title, description=description, base_uri=base_uri,
+        name=name,
+        title=title,
+        description=description,
+        base_uri=base_uri,
     )
 
 
 def _assemble_merged(
-    *, seen_slot_order, merged_slots, merged_enums, merged_slot_usage,
-    schemas, name, title, description, base_uri,
+    *,
+    seen_slot_order,
+    merged_slots,
+    merged_enums,
+    merged_slot_usage,
+    schemas,
+    name,
+    title,
+    description,
+    base_uri,
 ):
     first = schemas[0]
     name = name or first.get("name", "merged")
@@ -117,8 +129,12 @@ def _assemble_merged(
         merged_prefixes.update(s.get("prefixes") or {})
 
     main_class = {
-        "name": name, "title": title, "description": description, "is_a": "dh_interface",
-        "slots": list(seen_slot_order), "slot_usage": merged_slot_usage,
+        "name": name,
+        "title": title,
+        "description": description,
+        "is_a": "dh_interface",
+        "slots": list(seen_slot_order),
+        "slot_usage": merged_slot_usage,
     }
 
     schema: dict[str, Any] = {
@@ -148,6 +164,7 @@ def _assemble_merged(
 # ---------------------------------------------------------------------------
 # Filter
 # ---------------------------------------------------------------------------
+
 
 def filter(  # noqa: A001 — intentional shadow of builtin in module API
     schema: dict[str, Any],
@@ -182,8 +199,7 @@ def filter(  # noqa: A001 — intentional shadow of builtin in module API
 
     old_slot_usage = main_cls.get("slot_usage") or {}
     new_slot_usage = {
-        slot_name: {**old_slot_usage.get(slot_name, {}), "rank": rank}
-        for rank, slot_name in enumerate(kept, start=1)
+        slot_name: {**old_slot_usage.get(slot_name, {}), "rank": rank} for rank, slot_name in enumerate(kept, start=1)
     }
 
     new_main_cls = {**main_cls, "slots": list(kept), "slot_usage": new_slot_usage}
@@ -191,9 +207,7 @@ def filter(  # noqa: A001 — intentional shadow of builtin in module API
     old_slots = schema.get("slots") or {}
     new_slots = {name: old_slots[name] for name in kept if name in old_slots}
 
-    out: dict[str, Any] = {
-        k: v for k, v in schema.items() if k not in ("classes", "slots", "enums")
-    }
+    out: dict[str, Any] = {k: v for k, v in schema.items() if k not in ("classes", "slots", "enums")}
     out["classes"] = {
         cls_name: (new_main_cls if cls_name == main_name else cls_def)
         for cls_name, cls_def in (schema.get("classes") or {}).items()
@@ -217,5 +231,4 @@ def _warn_unknown(label: str, names: Sequence[str] | None, known: set[str]) -> N
     if not unknown:
         return
     shown = ", ".join(unknown[:5]) + ("..." if len(unknown) > 5 else "")
-    print(f"Warning: {label} list contains {len(unknown)} field(s) not in schema: {shown}",
-          file=sys.stderr)
+    print(f"Warning: {label} list contains {len(unknown)} field(s) not in schema: {shown}", file=sys.stderr)

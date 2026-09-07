@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
-from linkml_lib import convert_xml, convert_xsd, dh_data, diagnostics, edit_tables, io, pipeline, schema as schema_mod, transform
-
+from linkml_lib import convert_xml, convert_xsd, dh_data, diagnostics, edit_tables, io, pipeline, transform
+from linkml_lib import schema as schema_mod
 
 REPO = Path(__file__).resolve().parents[1]
 ENA_REPO = REPO.parent / "ena-submission-dataharmonizer"
@@ -31,6 +30,7 @@ requires_ena_assets = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 # Inline fixtures
 # ---------------------------------------------------------------------------
+
 
 def _schema(slots, enums=None, name="Demo"):
     """Build a minimal LinkML schema dict for tests."""
@@ -56,23 +56,30 @@ def _schema(slots, enums=None, name="Demo"):
 
 @pytest.fixture
 def schema_a():
-    return _schema({
-        "alias": {"title": "Alias", "range": "string", "required": True},
-        "status": {"title": "Status", "range": "StatusMenu"},
-    }, enums={"StatusMenu": {"permissible_values": {"NEW": {"text": "NEW"}, "OLD": {"text": "OLD"}}}})
+    return _schema(
+        {
+            "alias": {"title": "Alias", "range": "string", "required": True},
+            "status": {"title": "Status", "range": "StatusMenu"},
+        },
+        enums={"StatusMenu": {"permissible_values": {"NEW": {"text": "NEW"}, "OLD": {"text": "OLD"}}}},
+    )
 
 
 @pytest.fixture
 def schema_b():
-    return _schema({
-        "alias": {"title": "Alias (B)", "range": "string"},
-        "extra": {"title": "Extra", "range": "string"},
-    }, name="Other")
+    return _schema(
+        {
+            "alias": {"title": "Alias (B)", "range": "string"},
+            "extra": {"title": "Extra", "range": "string"},
+        },
+        name="Other",
+    )
 
 
 # ---------------------------------------------------------------------------
 # Loaders / converters
 # ---------------------------------------------------------------------------
+
 
 @requires_ena_assets
 def test_convert_xml_real_checklist():
@@ -116,6 +123,7 @@ def test_write_yaml_lowercase_bool(tmp_path, schema_a):
 # Merge
 # ---------------------------------------------------------------------------
 
+
 def test_merge_priority(schema_a, schema_b):
     merged = transform.merge([schema_a, schema_b])
     # alias is in both — first (schema_a) wins → title "Alias", not "Alias (B)"
@@ -133,6 +141,7 @@ def test_merge_renumbers_ranks(schema_a, schema_b):
 # ---------------------------------------------------------------------------
 # Filter
 # ---------------------------------------------------------------------------
+
 
 def test_filter_include(schema_a):
     out = transform.filter(schema_a, include=["alias"])
@@ -160,6 +169,7 @@ def test_filter_keeps_referenced_enums(schema_a):
 # Pipeline
 # ---------------------------------------------------------------------------
 
+
 def test_merge_writes_top_level_source():
     xml_schema = convert_xml.from_path(ERC_XML, "https://example.org")
     merged = transform.merge([xml_schema], source_names=["ERC000025"])
@@ -185,6 +195,7 @@ def test_pipeline_build_raises_on_no_valid_inputs(tmp_path):
 # ---------------------------------------------------------------------------
 # Schema introspection
 # ---------------------------------------------------------------------------
+
 
 def test_slot_meta_has_expected_columns(schema_a):
     rows = schema_mod.slot_meta(schema_a)
@@ -215,26 +226,28 @@ def test_allowed_units_from_comments_no_marker_returns_empty():
 
 
 def test_unit_rules_from_annotation_and_comments_and_default():
-    s = _schema({
-        "temp": {
-            "title": "Temperature",
-            "range": "string",
-            "annotations": {"id": "temperature", "ena_allowed_units": "C, F", "default_unit": "C"},
-        },
-        "vol": {
-            "title": "Volume",
-            "range": "string",
-            "annotations": {"id": "volume", "mimicc_default_unit": "mL"},
-            "comments": ["Allowed units: mL", "L"],
-        },
-        "mass": {
-            "title": "Mass",
-            "range": "string",
-            "annotations": {"id": "mass"},
-            "comments": ["Allowed units: g", "mg"],
-        },
-        "plain": {"title": "Plain", "range": "string"},
-    })
+    s = _schema(
+        {
+            "temp": {
+                "title": "Temperature",
+                "range": "string",
+                "annotations": {"id": "temperature", "ena_allowed_units": "C, F", "default_unit": "C"},
+            },
+            "vol": {
+                "title": "Volume",
+                "range": "string",
+                "annotations": {"id": "volume", "mimicc_default_unit": "mL"},
+                "comments": ["Allowed units: mL", "L"],
+            },
+            "mass": {
+                "title": "Mass",
+                "range": "string",
+                "annotations": {"id": "mass"},
+                "comments": ["Allowed units: g", "mg"],
+            },
+            "plain": {"title": "Plain", "range": "string"},
+        }
+    )
     rules = schema_mod.unit_rules(s)
     assert rules["temperature"] == schema_mod.UnitRule(("C", "F"), "C")
     assert rules["volume"] == schema_mod.UnitRule(("mL", "L"), "mL")
@@ -253,6 +266,7 @@ def test_diff_added_removed_changed(schema_a, schema_b):
 # ---------------------------------------------------------------------------
 # DataHarmonizer JSON data
 # ---------------------------------------------------------------------------
+
 
 @requires_ena_assets
 def test_dh_filter_columns_real():
