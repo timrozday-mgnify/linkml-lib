@@ -23,7 +23,7 @@ from ._yaml_dump import LinkMLDumper
 # Namespace stamped into `id:`/`from_schema:` when a schema is built from XML or
 # XSD and the caller names no base URI of its own. A LinkML identifier, never
 # fetched. Callers that care about provenance should pass their own.
-DEFAULT_BASE_URI = "https://github.com/timrozday-mgnify/linkml-lib"
+DEFAULT_BASE_URI = "https://github.com/EBI-Metagenomics/linkml-lib"
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:
